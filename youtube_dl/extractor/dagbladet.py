@@ -11,8 +11,8 @@ from ..utils import (
     int_or_none,
 )
 
-class lcpIE(InfoExtractor):
-    _VALID_URL = r'http?://(?:www\.)?lcp\.fr/(?:[^/]+/)*(?P<id>[^/]+)'
+class dagbladetIE(InfoExtractor):
+    _VALID_URL = r'http?://(?:www\.)?dagbladet\.no/(?:[^/]+/)*(?P<id>[^/]+)'
 
     _TESTS = [{
 
@@ -20,14 +20,14 @@ class lcpIE(InfoExtractor):
 
     def _real_extract(self, url):
         logging.basicConfig(filename='temp.log',level=logging.DEBUG)
-        mobj = re.match(self._VALID_URL, url)
-        display_id = mobj.group('id')
-
+        display_id = self._match_id(url)
         webpage = self._download_webpage(url, display_id)
-
         logging.debug(webpage)
-        lcp_url = self._search_regex(
-            r'src="([^"]+)"></video>"', webpage, 'video URL')
+
+        lcp_url = self._search_regex(r'src="([^"]+)" type="video/mp4"></video>', webpage, 'video URLs', default=None)
+
+
+
 
 
         logging.warning(lcp_url)
