@@ -2,6 +2,7 @@
 from __future__ import unicode_literals
 
 import re
+import logging
 
 from .common import InfoExtractor
 from ..utils import (
@@ -18,11 +19,11 @@ class lcpIE(InfoExtractor):
     }]
 
     def _real_extract(self, url):
+        logging.warning("Going here")
         display_id = self._match_id(url)
-
         webpage = self._download_webpage(url, display_id)
 
-        digiteka_url = self._proto_relative_url(self._search_regex(
-            r'url\s*:\s*(["\'])(?P<url>(?:https?://)?//(?:www\.)?(?:digiteka\.net|ultimedia\.com)/deliver/.+?)\1',
-            webpage, 'digiteka url', group='url'))
-        return self.url_result(digiteka_url, 'Digiteka')
+        lcp_url = self._search_regex(r'src="([^"]+)"></video>', webpage, 'video URLs', default=None)
+
+        logging.warning(lcp_url)
+        return self.url_result(lcp_url, 'lcp')
