@@ -46,8 +46,6 @@ class CloserToTruthIE(InfoExtractor):
         
         video_title = video_title + ' - ' + interviewee_name
 
-        print(video_title)
-
         #extract the partner id for kaltura.com
         m = re.search(r'(<script src="http://cdnapi\.kaltura\.com/p/(?P<p>\w+)/sp/(?P<sp>\w+)/\S+/partner_id/(?P<partner_id>\w+)"></script>)+', webpage)
         p_id = m.group(2);
