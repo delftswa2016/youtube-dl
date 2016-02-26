@@ -12,7 +12,7 @@ from ..utils import (
 )
 
 class lcpIE(InfoExtractor):
-    _VALID_URL = r'https?:\/\/(?:www\.)?lcp\.fr\/(?:[^\/]+/)*([^\/]+)\/(?P<id>[0-9]+)-[^\/]*'
+    _VALID_URL = r'https?:\/\/(?:www\.)?lcp\.fr\/(?:[^\/]+/)*(?P<id>[^/]+)'
 
     _TESTS = [{
         'url': 'http://www.lcp.fr/emissions/politique-matin/271085-politique-matin',
