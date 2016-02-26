@@ -143,7 +143,6 @@ from .cspan import CSpanIE
 from .ctsnews import CtsNewsIE
 from .cultureunplugged import CultureUnpluggedIE
 from .cwtv import CWTVIE
-from .dagbladet import dagbladetIE
 from .dailymotion import (
     DailymotionIE,
     DailymotionPlaylistIE,
