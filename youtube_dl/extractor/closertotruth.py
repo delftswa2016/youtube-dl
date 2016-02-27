@@ -37,17 +37,15 @@ class CloserToTruthIE(InfoExtractor):
         webpage = self._download_webpage(url, video_id)
         
         #compose title for video
-        m = re.search(r'(<title>(.+) \|.+</title>)', webpage)
-        video_title = m.group(2)#.split(' |', 2)[0]
+        video_title = self._search_regex(r'<title>(.+) \|.+</title>', webpage, 'video title')
 
-        entry_id = self._search_regex(r'<a href="\S+" id="video-'+video_id+'" data-kaltura="(\w+)">(.+)<span.+<\/a>', webpage, "video entry_id")
+        entry_id = self._search_regex(r'<a href="\S+" id="video-'+video_id+'" data-kaltura="(\w+)">.+<span.+<\/a>', webpage, "video entry_id")
         interviewee_name = re.sub(r'(<[^>]+>)', '',self._search_regex(r'<a href="\S+" id="video-'+video_id+'" data-kaltura="\w+">(.+)<span.+<\/a>', webpage, "video interviewee_name"))
 
         video_title = video_title + ' - ' + interviewee_name
 
         #extract the partner id for kaltura.com
-        m = re.search(r'(<script src="http://cdnapi\.kaltura\.com/p/(?P<p>\w+)/sp/(?P<sp>\w+)/\S+/partner_id/(?P<partner_id>\w+)"></script>)+', webpage)
-        p_id = m.group(2)
+        p_id = self._search_regex(r'<script src="http://cdnapi\.kaltura\.com/p/(?P<p>\w+)/sp/\w+/\S+/partner_id/\w+"></script>', webpage, "kaltura partner_id")
         
         #request video url at kaltura API
         #from: http://knowledge.kaltura.com/faq/how-retrieve-download-or-streaming-url-using-api-calls
