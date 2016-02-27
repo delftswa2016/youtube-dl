@@ -5,7 +5,8 @@ from ..utils import (
     int_or_none
 )
 
-class lcpIE(InfoExtractor):
+
+class LcpIE(InfoExtractor):
     IE_NAME = 'LCP'
     _VALID_URL = r'https?:\/\/(?:www\.)?lcp\.fr\/(?:[^\/]+/)*(?P<id>[^/]+)'
 
@@ -16,7 +17,7 @@ class lcpIE(InfoExtractor):
             'id': 'd56d03e9',
             'url': 're:http://httpod.scdn.arkena.com/11970/d56d03e9_[0-9]+.mp4',
             'ext': 'mp4',
-            'title': 'Schwartzenberg (PRG) préconise à François Hollande de participer à une primaire à gauche | LCP Assemblée nationale'
+            'title': 'Schwartzenberg (PRG) préconise à François Hollande de participer à une primaire à gauche'
         }
     }, {
         'url': 'http://www.lcp.fr/emissions/politique-matin/271085-politique-matin',
@@ -25,7 +26,7 @@ class lcpIE(InfoExtractor):
             'id': '327336',
             'url': 're:http://httpod.scdn.arkena.com/11970/327336_[0-9]+.mp4',
             'ext': 'mp4',
-            'title': 'Politique Matin - Politique matin | LCP Assemblée nationale'
+            'title': 'Politique Matin - Politique matin'
         }
     }]
 
@@ -43,14 +44,14 @@ class lcpIE(InfoExtractor):
             return self.url_result(self.__extract_embed_url(webpage))
 
         # Extract the video formats from the media info
-        video_formats = self.__get_video_formats(display_id, media_files_info)
+        video_formats = self.__get_video_formats(media_files_info)
         # Extract the thumbnails from the media info
         video_thumbnails = self.__get_thumbnails(media_files_info)
 
         # Return the dictionary with the information about the video to download
         return {
-            'id' : media_files_info['EntryName'],
-            'title' : self._og_search_title(webpage),
+            'id': media_files_info['EntryName'],
+            'title': self._og_search_title(webpage),
             'formats': video_formats,
             'thumbnails': video_thumbnails
         }
@@ -80,47 +81,57 @@ class lcpIE(InfoExtractor):
 
     def __extract_from_player(self, display_id, clip_id, player_id, skin_name):
         """Extracts the JSON object containing the required media info from the embedded arkena player"""
-        arkena_url = 'http://play.arkena.com/config/avp/v1/player/media/{0}/{1}/{2}/?callbackMethod=?'.format(clip_id, skin_name, player_id)
+        arkena_url = 'http://play.arkena.com/config/avp/v1/player/media/{0}/{1}/{2}/?callbackMethod=?'.format(clip_id,
+                                                                                                              skin_name,
+                                                                                                              player_id)
         arkena_info = self._download_webpage(arkena_url, 'clip_info_' + clip_id)
 
-        #Extract the json containing information about the video files
+        # Extract the json containing information about the video files
         arkena_info_regex = r'\?\((?P<json>.*)\);'
-        info_json = self._parse_json(self._search_regex(arkena_info_regex, arkena_info, 'json', group='json'), display_id)
+        info_json = self._parse_json(self._search_regex(arkena_info_regex, arkena_info, 'json', group='json'),
+                                     display_id)
 
-        media_files_info = info_json['Playlist'][0]  # All videos are part of a playlist, a single video is in a playlist of size 1
+        # All videos are part of a playlist, a single video is in a playlist of size 1
+        media_files_info = info_json.get('Playlist')
+        if media_files_info is not None:
+            media_files_info = media_files_info[0]
         return media_files_info
 
     def __get_thumbnails(self, media_files_info):
         """Retrieves the thumbnails contained in the media info"""
         thumbnails = []
-        for thumbnail in media_files_info['MediaInfo']['Poster']:
-            thumbnails.append({
-                'url': thumbnail['Url'],
-                'width': int_or_none(thumbnail['Size'])
-            })
+        media_thumbnail_info = media_files_info.get('MediaInfo', {}).get('Poster')
+        if media_thumbnail_info is not None:
+            for thumbnail in media_thumbnail_info:
+                thumbnails.append({
+                    'url': thumbnail.get('Url'),
+                    'width': int_or_none(thumbnail.get('Size'))
+                })
         return thumbnails
 
-    def __get_video_formats(self, display_id, media_files_info):
+    def __get_video_formats(self, media_files_info):
         """Retrieves the video formats contained in the media file info"""
         formats = []
+        media_files = media_files_info.get('MediaFiles')
 
-        formats.extend(self.__get_mp4_video_formats(media_files_info['MediaFiles']))
-        self._sort_formats(formats)
+        if media_files is not None:
+            formats.extend(self.__get_mp4_video_formats(media_files))
+            self._sort_formats(formats)
 
         return formats
 
     def __get_mp4_video_formats(self, media_files_json):
         """Retrieves all mp4 video formats contained in the media file info"""
         formats = []
-        mp4_files_json = media_files_json['Mp4']
-
-        for video_info in mp4_files_json:
-            bitrate = int_or_none(video_info['Bitrate'])
-            if bitrate is not None:
-                bitrate = bitrate / 1000     # Set bitrate to KBit/s
-            formats.append({
-                'url': video_info['Url'],
-                'ext': 'mp4',
-                'tbr': bitrate
-            })
+        mp4_files_json = media_files_json.get('Mp4')
+        if mp4_files_json is not None:
+            for video_info in mp4_files_json:
+                bitrate = int_or_none(video_info.get('Bitrate'))
+                if bitrate is not None:
+                    bitrate /= 1000  # Set bitrate to KBit/s
+                formats.append({
+                    'url': video_info.get('Url'),
+                    'ext': 'mp4',
+                    'tbr': bitrate
+                })
         return formats
