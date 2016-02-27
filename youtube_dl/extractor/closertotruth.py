@@ -40,8 +40,7 @@ class CloserToTruthIE(InfoExtractor):
         m = re.search(r'(<title>(.+) \|.+</title>)', webpage)
         video_title = m.group(2)#.split(' |', 2)[0]
 
-        m = re.search(r'<a href="\S+" id="video-'+video_id+'" data-kaltura="(\w+)">(.+)<span.+<\/a>', webpage)
-        entry_id = m.group(1)
+        entry_id = self._search_regex(r'<a href="\S+" id="video-'+video_id+'" data-kaltura="(\w+)">(.+)<span.+<\/a>', webpage, "video id")
         interviewee_name = re.sub(r'(<[^>]+>)', '',m.group(2));
         
         video_title = video_title + ' - ' + interviewee_name
@@ -55,8 +54,7 @@ class CloserToTruthIE(InfoExtractor):
         api_request_url = 'http://www.kaltura.com/p/'+p_id+'/sp/0/playManifest/entryId/'+entry_id+'/protocol/HTTPS/flavorParamId/0/video.mp4';
         api_response = self._download_webpage(api_request_url, video_id)
         
-        m = re.search(r'<media url="(\S+)"', api_response)
-        video_url = m.group(1)
+        video_url =  self._search_regex(r'<media url="(\S+)"', api_response, "video url")
          
         return {
             'url': video_url,
