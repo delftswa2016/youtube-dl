@@ -10,11 +10,20 @@ class lcpIE(InfoExtractor):
     _VALID_URL = r'https?:\/\/(?:www\.)?lcp\.fr\/(?:[^\/]+/)*(?P<id>[^/]+)'
 
     _TESTS = [{
+        'url': 'http://www.lcp.fr/la-politique-en-video/schwartzenberg-prg-preconise-francois-hollande-de-participer-une-primaire',
+        'md5': 'aecf5a330cfc1061445a9af5b2df392d',
+        'info_dict': {
+            'id': 'd56d03e9',
+            'url': 're:http://httpod.scdn.arkena.com/11970/d56d03e9_[0-9]+.mp4',
+            'ext': 'mp4',
+            'title': 'Schwartzenberg (PRG) préconise à François Hollande de participer à une primaire à gauche | LCP Assemblée nationale'
+        }
+    }, {
         'url': 'http://www.lcp.fr/emissions/politique-matin/271085-politique-matin',
         'md5': '6cea4f7d13810464ef8485a924fc3333',
         'info_dict': {
             'id': '327336',
-            'url': 'http://httpod.scdn.arkena.com/11970/327336_4.mp4',
+            'url': 're:http://httpod.scdn.arkena.com/11970/327336_[0-9]+.mp4',
             'ext': 'mp4',
             'title': 'Politique Matin - Politique matin | LCP Assemblée nationale'
         }
@@ -25,11 +34,14 @@ class lcpIE(InfoExtractor):
         display_id = self._match_id(url)
 
         # Extract the web page
-        self.report_download_webpage(display_id)
         webpage = self._download_webpage(url, display_id)
 
         # Extract the required info of the media files
         media_files_info = self.__extract_from_webpage(display_id, webpage)
+        # Some web pages embed videos from other platforms like dailymotion, therefore we pass on these URL
+        if media_files_info is None:
+            return self.url_result(self.__extract_embed_url(webpage))
+
         # Extract the video formats from the media info
         video_formats = self.__get_video_formats(display_id, media_files_info)
         # Extract the thumbnails from the media info
@@ -37,7 +49,7 @@ class lcpIE(InfoExtractor):
 
         # Return the dictionary with the information about the video to download
         return {
-            'id' : display_id,
+            'id' : media_files_info['EntryName'],
             'title' : self._og_search_title(webpage),
             'formats': video_formats,
             'thumbnails': video_thumbnails
@@ -49,17 +61,19 @@ class lcpIE(InfoExtractor):
         embed_regex = r'(?:[a-zA-Z0-9]+\.)?lcp\.fr\/embed\/(?P<clip_id>[A-za-z0-9]+)\/(?P<player_id>[A-za-z0-9]+)\/(?P<skin_name>[^\/]+)'
 
         # Extract the identifying attributes from the embed url of the web page
-        clip_id = self._search_regex(embed_regex, embed_url, 'clip id', group='clip_id')
-        player_id = self._search_regex(embed_regex, embed_url, 'player id', group='player_id')
-        skin_name = self._search_regex(embed_regex, embed_url, 'skin name', group='skin_name')
+        clip_id = self._search_regex(embed_regex, embed_url, 'clip id', group='clip_id', fatal=False)
+        player_id = self._search_regex(embed_regex, embed_url, 'player id', group='player_id', fatal=False)
+        skin_name = self._search_regex(embed_regex, embed_url, 'skin name', group='skin_name', fatal=False)
+
+        # Check whether the extraction of the clip id, player id or skin name
+        if (clip_id is None) or (player_id is None) or (skin_name is None):
+            return None
 
         # Extract the video url from the embedded player
         return self.__extract_from_player(display_id, clip_id, player_id, skin_name)
 
     def __extract_embed_url(self, webpage):
         """Extracts the embedded player url for the video."""
-        self.report_extraction('embedded url')
-
         return self._search_regex(
             r'<iframe[^>]+src=(["\'])(?P<url>.+?)\1',
             webpage, 'embed url', group='url')
@@ -67,7 +81,7 @@ class lcpIE(InfoExtractor):
     def __extract_from_player(self, display_id, clip_id, player_id, skin_name):
         """Extracts the JSON object containing the required media info from the embedded arkena player"""
         arkena_url = 'http://play.arkena.com/config/avp/v1/player/media/{0}/{1}/{2}/?callbackMethod=?'.format(clip_id, skin_name, player_id)
-        arkena_info = self._download_webpage(arkena_url, clip_id)
+        arkena_info = self._download_webpage(arkena_url, 'clip_info_' + clip_id)
 
         #Extract the json containing information about the video files
         arkena_info_regex = r'\?\((?P<json>.*)\);'
