@@ -7,7 +7,6 @@ from ..utils import (
 
 class lcpIE(InfoExtractor):
     IE_NAME = 'LCP'
-
     _VALID_URL = r'https?:\/\/(?:www\.)?lcp\.fr\/(?:[^\/]+/)*(?P<id>[^/]+)'
 
     _TESTS = [{
@@ -45,9 +44,9 @@ class lcpIE(InfoExtractor):
         }
 
     def __extract_from_webpage(self, display_id, webpage):
-        """Extracts the media info for the video for the provided web page."""
+        """Extracts the media info JSON object for the video for the provided web page."""
         embed_url = self.__extract_embed_url(webpage)
-        embed_regex = r'(?:[a-zA-Z0-9]+\.)?lcp\.fr\/embed\/(?P<clip_id>[0-9]+)\/(?P<player_id>[0-9]+)\/(?P<skin_name>[^\/]+)'
+        embed_regex = r'(?:[a-zA-Z0-9]+\.)?lcp\.fr\/embed\/(?P<clip_id>[A-za-z0-9]+)\/(?P<player_id>[A-za-z0-9]+)\/(?P<skin_name>[^\/]+)'
 
         # Extract the identifying attributes from the embed url of the web page
         clip_id = self._search_regex(embed_regex, embed_url, 'clip id', group='clip_id')
@@ -66,7 +65,7 @@ class lcpIE(InfoExtractor):
             webpage, 'embed url', group='url')
 
     def __extract_from_player(self, display_id, clip_id, player_id, skin_name):
-        """Extracts the json object containing the required media info from the embedded arkena player"""
+        """Extracts the JSON object containing the required media info from the embedded arkena player"""
         arkena_url = 'http://play.arkena.com/config/avp/v1/player/media/{0}/{1}/{2}/?callbackMethod=?'.format(clip_id, skin_name, player_id)
         arkena_info = self._download_webpage(arkena_url, clip_id)
 
