@@ -40,9 +40,9 @@ class CloserToTruthIE(InfoExtractor):
         m = re.search(r'(<title>(.+) \|.+</title>)', webpage)
         video_title = m.group(2)#.split(' |', 2)[0]
 
-        entry_id = self._search_regex(r'<a href="\S+" id="video-'+video_id+'" data-kaltura="(\w+)">(.+)<span.+<\/a>', webpage, "video id")
-        interviewee_name = re.sub(r'(<[^>]+>)', '',m.group(2))
-        
+        entry_id = self._search_regex(r'<a href="\S+" id="video-'+video_id+'" data-kaltura="(\w+)">(.+)<span.+<\/a>', webpage, "video entry_id")
+        interviewee_name = re.sub(r'(<[^>]+>)', '',self._search_regex(r'<a href="\S+" id="video-'+video_id+'" data-kaltura="\w+">(.+)<span.+<\/a>', webpage, "video interviewee_name"))
+
         video_title = video_title + ' - ' + interviewee_name
 
         #extract the partner id for kaltura.com
@@ -55,7 +55,7 @@ class CloserToTruthIE(InfoExtractor):
         api_response = self._download_webpage(api_request_url, video_id)
         
         video_url =  self._search_regex(r'<media url="(\S+)"', api_response, "video url")
-         
+        
         return {
             'url': video_url,
             'id': video_id,
