@@ -24,9 +24,6 @@ import time
 import tokenize
 import traceback
 
-if os.name == 'nt':
-    import ctypes
-
 from .compat import (
     compat_basestring,
     compat_cookiejar,
@@ -34,6 +31,7 @@ from .compat import (
     compat_get_terminal_size,
     compat_http_client,
     compat_kwargs,
+    compat_os_name,
     compat_str,
     compat_tokenize_tokenize,
     compat_urllib_error,
@@ -87,6 +85,7 @@ from .extractor import get_info_extractor, gen_extractors
 from .downloader import get_suitable_downloader
 from .downloader.rtmp import rtmpdump_version
 from .postprocessor import (
+    FFmpegFixupM3u8PP,
     FFmpegFixupM4aPP,
     FFmpegFixupStretchedPP,
     FFmpegMergerPP,
@@ -94,6 +93,9 @@ from .postprocessor import (
     get_postprocessor,
 )
 from .version import __version__
+
+if compat_os_name == 'nt':
+    import ctypes
 
 
 class YoutubeDL(object):
@@ -450,7 +452,7 @@ class YoutubeDL(object):
     def to_console_title(self, message):
         if not self.params.get('consoletitle', False):
             return
-        if os.name == 'nt' and ctypes.windll.kernel32.GetConsoleWindow():
+        if compat_os_name == 'nt' and ctypes.windll.kernel32.GetConsoleWindow():
             # c_wchar_p() might not be necessary if `message` is
             # already of type unicode()
             ctypes.windll.kernel32.SetConsoleTitleW(ctypes.c_wchar_p(message))
@@ -521,7 +523,7 @@ class YoutubeDL(object):
         else:
             if self.params.get('no_warnings'):
                 return
-            if not self.params.get('no_color') and self._err_file.isatty() and os.name != 'nt':
+            if not self.params.get('no_color') and self._err_file.isatty() and compat_os_name != 'nt':
                 _msg_header = '\033[0;33mWARNING:\033[0m'
             else:
                 _msg_header = 'WARNING:'
@@ -533,7 +535,7 @@ class YoutubeDL(object):
         Do the same as trouble, but prefixes the message with 'ERROR:', colored
         in red if stderr is a tty file.
         '''
-        if not self.params.get('no_color') and self._err_file.isatty() and os.name != 'nt':
+        if not self.params.get('no_color') and self._err_file.isatty() and compat_os_name != 'nt':
             _msg_header = '\033[0;31mERROR:\033[0m'
         else:
             _msg_header = 'ERROR:'
@@ -566,7 +568,7 @@ class YoutubeDL(object):
                 elif template_dict.get('height'):
                     template_dict['resolution'] = '%sp' % template_dict['height']
                 elif template_dict.get('width'):
-                    template_dict['resolution'] = '?x%d' % template_dict['width']
+                    template_dict['resolution'] = '%dx?' % template_dict['width']
 
             sanitize = lambda k, v: sanitize_filename(
                 compat_str(v),
@@ -1631,11 +1633,13 @@ class YoutubeDL(object):
                 self.report_error('content too short (expected %s bytes and served %s)' % (err.expected, err.downloaded))
                 return
 
-            if success:
+            if success and filename != '-':
                 # Fixup content
                 fixup_policy = self.params.get('fixup')
                 if fixup_policy is None:
                     fixup_policy = 'detect_or_warn'
+
+                INSTALL_FFMPEG_MESSAGE = 'Install ffmpeg or avconv to fix this automatically.'
 
                 stretched_ratio = info_dict.get('stretched_ratio')
                 if stretched_ratio is not None and stretched_ratio != 1:
@@ -1649,15 +1653,18 @@ class YoutubeDL(object):
                             info_dict['__postprocessors'].append(stretched_pp)
                         else:
                             self.report_warning(
-                                '%s: Non-uniform pixel ratio (%s). Install ffmpeg or avconv to fix this automatically.' % (
-                                    info_dict['id'], stretched_ratio))
+                                '%s: Non-uniform pixel ratio (%s). %s'
+                                % (info_dict['id'], stretched_ratio, INSTALL_FFMPEG_MESSAGE))
                     else:
                         assert fixup_policy in ('ignore', 'never')
 
-                if info_dict.get('requested_formats') is None and info_dict.get('container') == 'm4a_dash':
+                if (info_dict.get('requested_formats') is None and
+                        info_dict.get('container') == 'm4a_dash'):
                     if fixup_policy == 'warn':
-                        self.report_warning('%s: writing DASH m4a. Only some players support this container.' % (
-                            info_dict['id']))
+                        self.report_warning(
+                            '%s: writing DASH m4a. '
+                            'Only some players support this container.'
+                            % info_dict['id'])
                     elif fixup_policy == 'detect_or_warn':
                         fixup_pp = FFmpegFixupM4aPP(self)
                         if fixup_pp.available:
@@ -1665,8 +1672,27 @@ class YoutubeDL(object):
                             info_dict['__postprocessors'].append(fixup_pp)
                         else:
                             self.report_warning(
-                                '%s: writing DASH m4a. Only some players support this container. Install ffmpeg or avconv to fix this automatically.' % (
-                                    info_dict['id']))
+                                '%s: writing DASH m4a. '
+                                'Only some players support this container. %s'
+                                % (info_dict['id'], INSTALL_FFMPEG_MESSAGE))
+                    else:
+                        assert fixup_policy in ('ignore', 'never')
+
+                if (info_dict.get('protocol') == 'm3u8_native' or
+                        info_dict.get('protocol') == 'm3u8' and
+                        self.params.get('hls_prefer_native')):
+                    if fixup_policy == 'warn':
+                        self.report_warning('%s: malformated aac bitstream.' % (
+                            info_dict['id']))
+                    elif fixup_policy == 'detect_or_warn':
+                        fixup_pp = FFmpegFixupM3u8PP(self)
+                        if fixup_pp.available:
+                            info_dict.setdefault('__postprocessors', [])
+                            info_dict['__postprocessors'].append(fixup_pp)
+                        else:
+                            self.report_warning(
+                                '%s: malformated aac bitstream. %s'
+                                % (info_dict['id'], INSTALL_FFMPEG_MESSAGE))
                     else:
                         assert fixup_policy in ('ignore', 'never')
 

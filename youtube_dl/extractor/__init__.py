@@ -23,7 +23,10 @@ from .alphaporno import AlphaPornoIE
 from .animeondemand import AnimeOnDemandIE
 from .anitube import AnitubeIE
 from .anysex import AnySexIE
-from .aol import AolIE
+from .aol import (
+    AolIE,
+    AolFeaturesIE,
+)
 from .allocine import AllocineIE
 from .aparat import AparatIE
 from .appleconnect import AppleConnectIE
@@ -74,6 +77,7 @@ from .bleacherreport import (
 )
 from .blinkx import BlinkxIE
 from .bloomberg import BloombergIE
+from .bokecc import BokeCCIE
 from .bpb import BpbIE
 from .br import BRIE
 from .breakcom import BreakIE
@@ -340,6 +344,7 @@ from .konserthusetplay import KonserthusetPlayIE
 from .kontrtube import KontrTubeIE
 from .krasview import KrasViewIE
 from .ku6 import Ku6IE
+from .kusi import KUSIIE
 from .kuwo import (
     KuwoIE,
     KuwoAlbumIE,
@@ -353,10 +358,9 @@ from .laola1tv import Laola1TvIE
 from .lcp import LcpIE
 from .lecture2go import Lecture2GoIE
 from .lemonde import LemondeIE
-from .letv import (
-    LetvIE,
-    LetvTvIE,
-    LetvPlaylistIE,
+from .leeco import (
+    LeIE,
+    LePlaylistIE,
     LetvCloudIE,
 )
 from .libsyn import LibsynIE
@@ -507,6 +511,7 @@ from .npr import NprIE
 from .nrk import (
     NRKIE,
     NRKPlaylistIE,
+    NRKSkoleIE,
     NRKTVIE,
 )
 from .ntvde import NTVDeIE
@@ -671,7 +676,6 @@ from .southpark import (
     SouthParkEsIE,
     SouthParkNlIE
 )
-from .space import SpaceIE
 from .spankbang import SpankBangIE
 from .spankwire import SpankwireIE
 from .spiegel import SpiegelIE, SpiegelArticleIE
@@ -739,6 +743,7 @@ from .tmz import (
     TMZArticleIE,
 )
 from .tnaflix import (
+    TNAFlixNetworkEmbedIE,
     TNAFlixIE,
     EMPFlixIE,
     MovieFapIE,
@@ -815,6 +820,7 @@ from .digiteka import DigitekaIE
 from .unistra import UnistraIE
 from .urort import UrortIE
 from .ustream import UstreamIE, UstreamChannelIE
+from .ustudio import UstudioIE
 from .varzesh3 import Varzesh3IE
 from .vbox7 import Vbox7IE
 from .veehd import VeeHDIE

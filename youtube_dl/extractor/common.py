@@ -15,13 +15,14 @@ import math
 from ..compat import (
     compat_cookiejar,
     compat_cookies,
+    compat_etree_fromstring,
     compat_getpass,
     compat_http_client,
+    compat_os_name,
+    compat_str,
     compat_urllib_error,
     compat_urllib_parse,
     compat_urlparse,
-    compat_str,
-    compat_etree_fromstring,
 )
 from ..utils import (
     NO_DEFAULT,
@@ -104,7 +105,7 @@ class InfoExtractor(object):
                     * protocol   The protocol that will be used for the actual
                                  download, lower-case.
                                  "http", "https", "rtsp", "rtmp", "rtmpe",
-                                 "m3u8", or "m3u8_native".
+                                 "m3u8", "m3u8_native" or "http_dash_segments".
                     * preference Order number of this format. If this field is
                                  present and not None, the formats get sorted
                                  by this field, regardless of all other values.
@@ -157,12 +158,14 @@ class InfoExtractor(object):
     thumbnail:      Full URL to a video thumbnail image.
     description:    Full video description.
     uploader:       Full name of the video uploader.
+    license:        License name the video is licensed under.
     creator:        The main artist who created the video.
     release_date:   The date (YYYYMMDD) when the video was released.
     timestamp:      UNIX timestamp of the moment the video became available.
     upload_date:    Video upload date (YYYYMMDD).
                     If not explicitly set, calculated from timestamp.
     uploader_id:    Nickname or id of the video uploader.
+    uploader_url:   Full URL to a personal webpage of the video uploader.
     location:       Physical location where the video was filmed.
     subtitles:      The available subtitles as a dictionary in the format
                     {language: subformats}. "subformats" is a list sorted from
@@ -425,7 +428,7 @@ class InfoExtractor(object):
             self.to_screen('Saving request to ' + filename)
             # Working around MAX_PATH limitation on Windows (see
             # http://msdn.microsoft.com/en-us/library/windows/desktop/aa365247(v=vs.85).aspx)
-            if os.name == 'nt':
+            if compat_os_name == 'nt':
                 absfilepath = os.path.abspath(filename)
                 if len(absfilepath) > 259:
                     filename = '\\\\?\\' + absfilepath
@@ -594,7 +597,7 @@ class InfoExtractor(object):
                 if mobj:
                     break
 
-        if not self._downloader.params.get('no_color') and os.name != 'nt' and sys.stderr.isatty():
+        if not self._downloader.params.get('no_color') and compat_os_name != 'nt' and sys.stderr.isatty():
             _name = '\033[0;34m%s\033[0m' % name
         else:
             _name = name
@@ -1033,11 +1036,21 @@ class InfoExtractor(object):
             return []
         m3u8_doc, urlh = res
         m3u8_url = urlh.geturl()
-        # A Media Playlist Tag MUST NOT appear in a Master Playlist
-        # https://tools.ietf.org/html/draft-pantos-http-live-streaming-17#section-4.3.3
-        # The EXT-X-TARGETDURATION tag is REQUIRED for every M3U8 Media Playlists
-        # https://tools.ietf.org/html/draft-pantos-http-live-streaming-17#section-4.3.3.1
-        if '#EXT-X-TARGETDURATION' in m3u8_doc:
+
+        # We should try extracting formats only from master playlists [1], i.e.
+        # playlists that describe available qualities. On the other hand media
+        # playlists [2] should be returned as is since they contain just the media
+        # without qualities renditions.
+        # Fortunately, master playlist can be easily distinguished from media
+        # playlist based on particular tags availability. As of [1, 2] master
+        # playlist tags MUST NOT appear in a media playist and vice versa.
+        # As of [3] #EXT-X-TARGETDURATION tag is REQUIRED for every media playlist
+        # and MUST NOT appear in master playlist thus we can clearly detect media
+        # playlist with this criterion.
+        # 1. https://tools.ietf.org/html/draft-pantos-http-live-streaming-17#section-4.3.4
+        # 2. https://tools.ietf.org/html/draft-pantos-http-live-streaming-17#section-4.3.3
+        # 3. https://tools.ietf.org/html/draft-pantos-http-live-streaming-17#section-4.3.3.1
+        if '#EXT-X-TARGETDURATION' in m3u8_doc:  # media playlist, return as is
             return [{
                 'url': m3u8_url,
                 'format_id': m3u8_id,
@@ -1084,19 +1097,29 @@ class InfoExtractor(object):
                     'protocol': entry_protocol,
                     'preference': preference,
                 }
-                codecs = last_info.get('CODECS')
-                if codecs:
-                    # TODO: looks like video codec is not always necessarily goes first
-                    va_codecs = codecs.split(',')
-                    if va_codecs[0]:
-                        f['vcodec'] = va_codecs[0]
-                    if len(va_codecs) > 1 and va_codecs[1]:
-                        f['acodec'] = va_codecs[1]
                 resolution = last_info.get('RESOLUTION')
                 if resolution:
                     width_str, height_str = resolution.split('x')
                     f['width'] = int(width_str)
                     f['height'] = int(height_str)
+                codecs = last_info.get('CODECS')
+                if codecs:
+                    vcodec, acodec = [None] * 2
+                    va_codecs = codecs.split(',')
+                    if len(va_codecs) == 1:
+                        # Audio only entries usually come with single codec and
+                        # no resolution. For more robustness we also check it to
+                        # be mp4 audio.
+                        if not resolution and va_codecs[0].startswith('mp4a'):
+                            vcodec, acodec = 'none', va_codecs[0]
+                        else:
+                            vcodec = va_codecs[0]
+                    else:
+                        vcodec, acodec = va_codecs[:2]
+                    f.update({
+                        'acodec': acodec,
+                        'vcodec': vcodec,
+                    })
                 if last_media is not None:
                     f['m3u8_media'] = last_media
                     last_media = None
@@ -1598,6 +1621,15 @@ class InfoExtractor(object):
         return {}
 
     def _get_automatic_captions(self, *args, **kwargs):
+        raise NotImplementedError('This method must be implemented by subclasses')
+
+    def mark_watched(self, *args, **kwargs):
+        if (self._downloader.params.get('mark_watched', False) and
+                (self._get_login_info()[0] is not None or
+                    self._downloader.params.get('cookiefile') is not None)):
+            self._mark_watched(*args, **kwargs)
+
+    def _mark_watched(self, *args, **kwargs):
         raise NotImplementedError('This method must be implemented by subclasses')
 
 

@@ -18,6 +18,7 @@ import xml.etree.ElementTree
 from youtube_dl.utils import (
     age_restricted,
     args_to_str,
+    encode_base_n,
     clean_html,
     DateRange,
     detect_exe_version,
@@ -60,6 +61,7 @@ from youtube_dl.utils import (
     lowercase_escape,
     url_basename,
     urlencode_postdata,
+    update_url_query,
     version_tuple,
     xpath_with_ns,
     xpath_element,
@@ -75,6 +77,8 @@ from youtube_dl.utils import (
 )
 from youtube_dl.compat import (
     compat_etree_fromstring,
+    compat_urlparse,
+    compat_parse_qs,
 )
 
 
@@ -249,6 +253,7 @@ class TestUtil(unittest.TestCase):
         self.assertEqual(
             unified_strdate('2/2/2015 6:47:40 PM', day_first=False),
             '20150202')
+        self.assertEqual(unified_strdate('Feb 14th 2016 5:45PM'), '20160214')
         self.assertEqual(unified_strdate('25-09-2014'), '20140925')
         self.assertEqual(unified_strdate('UNKNOWN DATE FORMAT'), None)
 
@@ -451,6 +456,40 @@ class TestUtil(unittest.TestCase):
     def test_urlencode_postdata(self):
         data = urlencode_postdata({'username': 'foo@bar.com', 'password': '1234'})
         self.assertTrue(isinstance(data, bytes))
+
+    def test_update_url_query(self):
+        def query_dict(url):
+            return compat_parse_qs(compat_urlparse.urlparse(url).query)
+        self.assertEqual(query_dict(update_url_query(
+            'http://example.com/path', {'quality': ['HD'], 'format': ['mp4']})),
+            query_dict('http://example.com/path?quality=HD&format=mp4'))
+        self.assertEqual(query_dict(update_url_query(
+            'http://example.com/path', {'system': ['LINUX', 'WINDOWS']})),
+            query_dict('http://example.com/path?system=LINUX&system=WINDOWS'))
+        self.assertEqual(query_dict(update_url_query(
+            'http://example.com/path', {'fields': 'id,formats,subtitles'})),
+            query_dict('http://example.com/path?fields=id,formats,subtitles'))
+        self.assertEqual(query_dict(update_url_query(
+            'http://example.com/path', {'fields': ('id,formats,subtitles', 'thumbnails')})),
+            query_dict('http://example.com/path?fields=id,formats,subtitles&fields=thumbnails'))
+        self.assertEqual(query_dict(update_url_query(
+            'http://example.com/path?manifest=f4m', {'manifest': []})),
+            query_dict('http://example.com/path'))
+        self.assertEqual(query_dict(update_url_query(
+            'http://example.com/path?system=LINUX&system=WINDOWS', {'system': 'LINUX'})),
+            query_dict('http://example.com/path?system=LINUX'))
+        self.assertEqual(query_dict(update_url_query(
+            'http://example.com/path', {'fields': b'id,formats,subtitles'})),
+            query_dict('http://example.com/path?fields=id,formats,subtitles'))
+        self.assertEqual(query_dict(update_url_query(
+            'http://example.com/path', {'width': 1080, 'height': 720})),
+            query_dict('http://example.com/path?width=1080&height=720'))
+        self.assertEqual(query_dict(update_url_query(
+            'http://example.com/path', {'bitrate': 5020.43})),
+            query_dict('http://example.com/path?bitrate=5020.43'))
+        self.assertEqual(query_dict(update_url_query(
+            'http://example.com/path', {'test': '第二行тест'})),
+            query_dict('http://example.com/path?test=%E7%AC%AC%E4%BA%8C%E8%A1%8C%D1%82%D0%B5%D1%81%D1%82'))
 
     def test_dict_get(self):
         FALSE_VALUES = {
@@ -800,6 +839,17 @@ The first line
         self.assertEqual(
             ohdave_rsa_encrypt(b'aa111222', e, N),
             '726664bd9a23fd0c70f9f1b84aab5e3905ce1e45a584e9cbcf9bcc7510338fc1986d6c599ff990d923aa43c51c0d9013cd572e13bc58f4ae48f2ed8c0b0ba881')
+
+    def test_encode_base_n(self):
+        self.assertEqual(encode_base_n(0, 30), '0')
+        self.assertEqual(encode_base_n(80, 30), '2k')
+
+        custom_table = '9876543210ZYXWVUTSRQPONMLKJIHGFEDCBA'
+        self.assertEqual(encode_base_n(0, 30, custom_table), '9')
+        self.assertEqual(encode_base_n(80, 30, custom_table), '7P')
+
+        self.assertRaises(ValueError, encode_base_n, 0, 70)
+        self.assertRaises(ValueError, encode_base_n, 0, 60, custom_table)
 
 if __name__ == '__main__':
     unittest.main()
